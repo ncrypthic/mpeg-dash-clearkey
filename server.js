@@ -83,17 +83,38 @@ const generatePlayreadyToken = async (customerKey, kid, key) => {
   }
 }
 
+const generateFairplayToken = async (customerKey, kid, key, iv) => {
+  try {
+    const payload = {
+      errorFormat: 'json',
+      kid: kid,
+      contentKey: key,
+      iv: iv,
+      useHttps: true
+    }
+    const tokenUrl = `${process.env.FAIRPLAY_TOKEN_GENERATE_URL}?customerAuthenticator=${customerKey}&${queryString.stringify(payload)}`
+    console.log(`tokenUrl: ${tokenUrl}`)
+    const res = await fetch(tokenUrl)
+    return await res.text()
+  } catch (e) {
+    /* handle error */
+    return e
+  }
+}
+
 const drmHandler = async (req, res) => {
   try {
-    const {EXPRESS_PLAY_CUSTOMER_AUTHENTICATOR, KID, KEY} = process.env
+    const {EXPRESS_PLAY_CUSTOMER_AUTHENTICATOR, KID, KEY, FAIRPLAY_IV} = process.env
     const tokens = await Promise.all([
       generateWidevineToken(EXPRESS_PLAY_CUSTOMER_AUTHENTICATOR, KID, KEY),
-      generatePlayreadyToken(EXPRESS_PLAY_CUSTOMER_AUTHENTICATOR, KID, KEY)
+      generatePlayreadyToken(EXPRESS_PLAY_CUSTOMER_AUTHENTICATOR, KID, KEY),
+      generateFairplayToken(EXPRESS_PLAY_CUSTOMER_AUTHENTICATOR, KID, KEY, FAIRPLAY_IV)
     ], (tokenResponses) => tokenResponses)
     console.log("Tokens:", tokens)
     const licenses = {
       'com.widevine.alpha': tokens[0],
-      'com.microsoft.playready': tokens[1]
+      'com.microsoft.playready': tokens[1],
+      'com.apple.fps.1_0': tokens[2]
     }
     console.log("Licenses:", licenses)
     res.json(licenses)
@@ -103,7 +124,12 @@ const drmHandler = async (req, res) => {
   }
 }
 
+const certHandler = (req, res) => {
+  return fetch(process.env.FAIRPLAY_CERT_URL)
+}
+
 app.get('/video-license', drmHandler)
+app.get('/fpcert', certHandler)
 
 app.listen(process.env.port||3000, function() {
   console.log('Server starting')
