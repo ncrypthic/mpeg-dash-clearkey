@@ -15,6 +15,7 @@ var corsOptions = {
     }
   }
 }
+express.static.mime.define({'text/vtt': ['webvtt']})
 
 app.use(cors(whitelist))
 app.use(express.static('public'))
@@ -47,7 +48,7 @@ const generateWidevineToken = async (customerKey, kid, key) => {
       kid: kid,
       contentKey: key,
       securityLevel: 1,
-      hdcpOutputControl: 0,
+      hdcpOutputControl: 0
     }
     const tokenUrl = `${process.env.WIDEVINE_TOKEN_GENERATE_URL}?customerAuthenticator=${customerKey}&${queryString.stringify(payload)}`
     console.log(`tokenUrl: ${tokenUrl}`)
@@ -124,8 +125,11 @@ const drmHandler = async (req, res) => {
   }
 }
 
-const certHandler = (req, res) => {
-  return fetch(process.env.FAIRPLAY_CERT_URL)
+const certHandler = async (req, res) => {
+  console.log('Fetching fairplay certificate', process.env.FAIRPLAY_CERT_URL)
+  const cert = await fetch(process.env.FAIRPLAY_CERT_URL)
+  const rawCert = await cert.buffer()
+  res.send(rawCert)
 }
 
 app.get('/video-license', drmHandler)
